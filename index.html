@@ -1,30 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>BTC AI BINANCE PRO FULL TP/SL + Confidence</title>
-  <script src="https://s3.tradingview.com/tv.js"></script>
-  <style>
-    html, body { margin:0; height:100%; background:#0b0e11; font-family:Arial,sans-serif; overflow:hidden; }
-    .container { display:flex; height:100vh; }
-    #chart { flex:3; }
-    .right { flex:1; display:grid; grid-template-rows: repeat(30, 1fr); gap:6px; padding:8px; background:#0b0e11; }
-    .box { background:#161a1e; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; transition:0.2s; overflow:hidden; position:relative; color:#aaaaaa; padding:2px 6px; }
-    .green { color:#0ecb81; }
-    .red { color:#f6465d; }
-    .yellow { color:#fcd535; }
-    .flash-price { animation: flashPrice 0.5s; }
-    .flash-red { animation: flashRed 0.5s; }
-    .gray-number { color:#aaaaaa; margin-left:4px; }
-    .tooltip { visibility:hidden; width:auto; max-width:220px; background:#222; color:#fff; text-align:left; border-radius:4px; padding:4px 6px; position:absolute; z-index:10; top:110%; left:50%; transform:translateX(-50%); font-size:12px; white-space:pre-line; }
-    .box:hover .tooltip { visibility:visible; }
-    .mini-bar { height: 10px; border-radius: 3px; margin: 1px 0; }
-    .rec-bar { height:10px; width:100%; border-radius:5px; background:#222; position:relative; }
-    .rec-fill { height:100%; border-radius:5px; position:absolute; left:0; top:0; text-align:right; color:#fff; font-size:10px; padding-right:3px; line-height:10px; }
-    .conf-bar { height:16px; width:100%; border-radius:6px; background:#222; position:relative; margin-top:2px; }
-    .conf-fill { height:100%; border-radius:6px; position:absolute; left:0; top:0; text-align:right; color:#fff; font-size:12px; padding-right:4px; line-height:16px; font-weight:bold; }
-    @keyframes flashPrice {0%{background:#0ecb81;color:#000}50%{background:#161a1e;color:#0ecb81}100%{background:#0b0e11;color:#0ecb81}}
-    @keyframes flashRed {0%{background:#f6465d;color:#000}50%{background:#161a1e;color:#f6465d}100%{background:#0b0e11;color:#f6465d}}
-  </style>
+<meta charset="UTF-8">
+<title>BTC AI BINANCE PRO - GitHub Pages</title>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<style>
+html,body{margin:0;height:100%;font-family:Arial,sans-serif;background:#0b0e11;overflow:hidden;}
+.container{display:flex;height:100vh;}
+#chart{flex:3;}
+.right{flex:1;display:grid;grid-template-rows:repeat(30,1fr);gap:6px;padding:8px;background:#0b0e11;}
+.box{background:#161a1e;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;transition:0.2s;overflow:hidden;position:relative;color:#aaaaaa;padding:2px 6px;}
+.green{color:#0ecb81;}
+.red{color:#f6465d;}
+.yellow{color:#fcd535;}
+.gray-number{color:#aaaaaa;margin-left:4px;}
+.tooltip{visibility:hidden;width:auto;max-width:220px;background:#222;color:#fff;text-align:left;border-radius:4px;padding:4px 6px;position:absolute;z-index:10;top:110%;left:50%;transform:translateX(-50%);font-size:12px;white-space:pre-line;}
+.box:hover .tooltip{visibility:visible;}
+.rec-bar{height:10px;width:100%;border-radius:5px;background:#222;position:relative;}
+.rec-fill{height:100%;border-radius:5px;position:absolute;left:0;top:0;text-align:right;color:#fff;font-size:10px;padding-right:3px;line-height:10px;}
+.conf-bar{height:16px;width:100%;border-radius:6px;background:#222;position:relative;margin-top:2px;}
+.conf-fill{height:100%;border-radius:6px;position:absolute;left:0;top:0;text-align:right;color:#fff;font-size:12px;padding-right:4px;line-height:16px;font-weight:bold;}
+@keyframes flashPrice{0%{background:#0ecb81;color:#000}50%{background:#161a1e;color:#0ecb81}100%{background:#0b0e11;color:#0ecb81}}
+@keyframes flashRed{0%{background:#f6465d;color:#000}50%{background:#161a1e;color:#f6465d}100%{background:#0b0e11;color:#f6465d}}
+.flash-price{animation:flashPrice 0.5s;}
+.flash-red{animation:flashRed 0.5s;}
+.mini-bar{height:10px;border-radius:3px;margin:1px 0;}
+</style>
 </head>
 <body>
 <div class="container">
@@ -37,120 +38,73 @@
     <div class="box" id="pattern"></div>
     <div class="box" id="recommend"></div>
     <div class="box rec-bar"><div id="recFill" class="rec-fill"></div></div>
-
     <div class="box green" id="actionBuy"></div>
     <div class="box green" id="entryBuy"></div>
     <div class="box yellow" id="tpBuy"></div>
     <div class="box yellow" id="slBuy"></div>
     <div class="box green" id="winBuy"></div>
     <div class="box conf-bar"><div id="confBuy" class="conf-fill"></div></div>
-
     <div class="box red" id="actionSell"></div>
     <div class="box red" id="entrySell"></div>
     <div class="box yellow" id="tpSell"></div>
     <div class="box yellow" id="slSell"></div>
     <div class="box red" id="winSell"></div>
     <div class="box conf-bar"><div id="confSell" class="conf-fill"></div></div>
-
-    <div class="box" style="flex-direction:column; justify-content:flex-start; padding:4px;" id="miniChart"></div>
-
+    <div class="box" style="flex-direction:column;justify-content:flex-start;padding:4px;" id="miniChart"></div>
     <div class="box" id="total"></div>
     <div class="box" id="last"></div>
   </div>
 </div>
 
 <script>
-new TradingView.widget({ container_id:"chart", symbol:"BINANCE:BTCUSDT", interval:"1", theme:"dark", autosize:true });
-
-// ===== Helpers =====
-async function getData(tf){ let r=await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${tf}&limit=100`); return await r.json(); }
-function closes(d){ return d.map(x=>parseFloat(x[4])); }
-function volumes(d){ return d.map(x=>parseFloat(x[5])); }
-function MA(cl,n){ return cl.slice(-n).reduce((a,b)=>a+b)/n; }
-function RSI(cl){ let g=0,l=0; for(let i=1;i<cl.length;i++){ let d=cl[i]-cl[i-1]; if(d>0) g+=d; else l-=d; } return 100-(100/(1+g/l)); }
-function detectPattern(d){ let o=parseFloat(d[d.length-1][1]), h=parseFloat(d[d.length-1][2]), l=parseFloat(d[d.length-1][3]), cl=parseFloat(d[d.length-1][4]), body=Math.abs(cl-o), range=h-l; if(body/range<0.2) return "Doji 🔹"; if(body/range>0.7 && cl>o) return "Bull Hammer 🔥"; if(body/range>0.7 && cl<o) return "Bear Hammer 🔥"; return "-"; }
-function flash(el,type){ el.classList.remove('flash-price','flash-red'); void el.offsetWidth; if(type) el.classList.add(type); }
-
-// ===== State =====
-let tradesBuy=[], tradesSell=[], history=[], lastPrice=null;
-
-// ===== UI Update =====
+new TradingView.widget({container_id:"chart",symbol:"BINANCE:BTCUSDT",interval:"1",theme:"dark",autosize:true});
+async function getData(tf){let r=await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${tf}&limit=100`);return await r.json();}
+function closes(d){return d.map(x=>parseFloat(x[4]));}
+function volumes(d){return d.map(x=>parseFloat(x[5]));}
+function MA(cl,n){return cl.slice(-n).reduce((a,b)=>a+b)/n;}
+function RSI(cl){let g=0,l=0;for(let i=1;i<cl.length;i++){let d=cl[i]-cl[i-1];if(d>0)g+=d;else l-=d;}return 100-(100/(1+g/l));}
+function detectPattern(d){let o=parseFloat(d[d.length-1][1]),h=parseFloat(d[d.length-1][2]),l=parseFloat(d[d.length-1][3]),cl=parseFloat(d[d.length-1][4]),body=Math.abs(cl-o),range=h-l;if(body/range<0.2)return"Doji 🔹";if(body/range>0.7&&cl>o)return"Bull Hammer 🔥";if(body/range>0.7&&cl<o)return"Bear Hammer 🔥";return"-";}
+function flash(el,type){el.classList.remove('flash-price','flash-red');void el.offsetWidth;if(type)el.classList.add(type);}
+let tradesBuy=[],tradesSell=[],history=[],lastPrice=null;
 function updateUI(price,ma1,ma5,ma15,rsi,vol,avgVol,pattern){
-  const p=document.getElementById.bind(document);
-
-  if(lastPrice){ 
-    if(price>lastPrice) flash(p("price"),'flash-price'); 
-    else if(price<lastPrice) flash(p("price"),'flash-red'); 
-  }
-  lastPrice=price;
-  p("price").style.color="#aaaaaa"; p("price").innerText="💰 "+price.toFixed(2);
-
-  // Trend
-  let trendTxt=price>ma15?"UP 📈":"DOWN 📉";
-  p("trend").innerText=trendTxt; p("trend").style.color=trendTxt.startsWith("UP")?"#0ecb81":"#f6465d";
-
-  // RSI / Volume / Pattern
-  p("rsi").innerText="RSI: "+rsi.toFixed(1); p("rsi").style.color="#aaaaaa";
-  p("volume").innerText="Vol: "+vol.toFixed(0); p("volume").style.color="#aaaaaa";
-  p("pattern").innerText=pattern; p("pattern").style.color="#aaaaaa";
-
-  // Recommendation
-  let score=0; if(trendTxt.startsWith("UP")) score+=30; else score-=30; if(rsi<40) score+=20; if(rsi>60) score-=20; if(vol>avgVol*1.5) score+=20; if(pattern.includes("Bull")) score+=10; if(pattern.includes("Bear")) score-=10;
-  let recTxt="WAIT"; let recColor="#aaaaaa";
-  if(score>10){ recTxt="BUY "+score+"%"; recColor="#0ecb81"; }
-  else if(score<-10){ recTxt="SELL "+(-score)+"%"; recColor="#f6465d"; }
-  p("recommend").innerText="Recommendation: "+recTxt; p("recommend").style.color=recColor;
-
-  p("recFill").style.width= Math.min(Math.abs(score),100)+"%"; 
-  p("recFill").style.backgroundColor = score>0 ? "#0ecb81" : score<0 ? "#f6465d" : "#fcd535";
-
-  // Confidence bars
-  let confBuy=Math.max(0,score), confSell=Math.max(0,-score);
-  p("confBuy").style.width=confBuy+"%"; p("confBuy").style.backgroundColor="#0ecb81"; p("confBuy").innerText=confBuy>0?confBuy.toFixed(0)+"%":'';
-  p("confSell").style.width=confSell+"%"; p("confSell").style.backgroundColor="#f6465d"; p("confSell").innerText=confSell>0?confSell.toFixed(0)+"%":'';
-
-  // Simulate TP/SL for latest BUY/SELL trades
-  let lastBuy=tradesBuy[tradesBuy.length-1]||{entry:0,sl:0};
-  let lastSell=tradesSell[tradesSell.length-1]||{entry:0,sl:0};
-
-  p("actionBuy").innerText="BUY"; p("actionBuy").style.color="#0ecb81";
-  p("entryBuy").innerHTML="ENTRY: <span class='gray-number'>"+lastBuy.entry.toFixed(2)+"</span>";
-  p("tpBuy").innerHTML="TP: <span class='gray-number'>"+(lastBuy.entry*1.01).toFixed(2)+"</span>";
-  p("slBuy").innerHTML="SL: <span class='gray-number'>"+lastBuy.sl.toFixed(2)+"</span>";
-
-  p("actionSell").innerText="SELL"; p("actionSell").style.color="#f6465d";
-  p("entrySell").innerHTML="ENTRY: <span class='gray-number'>"+lastSell.entry.toFixed(2)+"</span>";
-  p("tpSell").innerHTML="TP: <span class='gray-number'>"+(lastSell.entry*0.99).toFixed(2)+"</span>";
-  p("slSell").innerHTML="SL: <span class='gray-number'>"+lastSell.sl.toFixed(2)+"</span>";
-
-  // Mini chart
-  let mc=p("miniChart"); mc.innerHTML="";
-  let recent=history.slice(-10);
-  recent.forEach(h=>{
-    let div=document.createElement("div");
-    div.className="mini-bar "+(h.includes("BUY")?"green":"red");
-    mc.appendChild(div);
-  });
-
-  // Total / Last
-  p("total").style.color="#aaaaaa"; p("total").innerText="Total Trades: "+history.length;
-  p("last").style.color="#aaaaaa"; p("last").innerText="Last: "+(history[history.length-1]||"-");
-
-  // Trigger new trades
-  if(score>10 && tradesBuy.length<3){ tradesBuy.push({type:"BUY",entry:price,sl:price*0.995,score}); }
-  if(score<-10 && tradesSell.length<3){ tradesSell.push({type:"SELL",entry:price,sl:price*1.005,score}); }
-}
-
-// ===== Main Loop =====
+const p=document.getElementById.bind(document);
+if(lastPrice){if(price>lastPrice)flash(p("price"),'flash-price');else if(price<lastPrice)flash(p("price"),'flash-red');}lastPrice=price;p("price").style.color="#aaaaaa";p("price").innerText="💰 "+price.toFixed(2);
+let trendTxt=price>ma15?"UP 📈":"DOWN 📉";p("trend").innerText=trendTxt;p("trend").style.color=trendTxt.startsWith("UP")?"#0ecb81":"#f6465d";
+p("rsi").innerText="RSI: "+rsi.toFixed(1);p("rsi").style.color="#aaaaaa";
+p("volume").innerText="Vol: "+vol.toFixed(0);p("volume").style.color="#aaaaaa";
+p("pattern").innerText=pattern;p("pattern").style.color="#aaaaaa";
+let score=0;if(trendTxt.startsWith("UP"))score+=30;else score-=30;if(rsi<40)score+=20;if(rsi>60)score-=20;if(vol>avgVol*1.5)score+=20;if(pattern.includes("Bull"))score+=10;if(pattern.includes("Bear"))score-=10;
+let recTxt="WAIT";let recColor="#aaaaaa";
+if(score>10){recTxt="BUY "+score+"%";recColor="#0ecb81";}
+else if(score<-10){recTxt="SELL "+(-score)+"%";recColor="#f6465d";}
+p("recommend").innerText="Recommendation: "+recTxt;p("recommend").style.color=recColor;
+p("recFill").style.width=Math.min(Math.abs(score),100)+"%";p("recFill").style.backgroundColor=score>0?"#0ecb81":score<0?"#f6465d":"#fcd535";
+let confBuy=Math.max(0,score),confSell=Math.max(0,-score);
+p("confBuy").style.width=confBuy+"%";p("confBuy").style.backgroundColor="#0ecb81";p("confBuy").innerText=confBuy>0?confBuy.toFixed(0)+"%":'';
+p("confSell").style.width=confSell+"%";p("confSell").style.backgroundColor="#f6465d";p("confSell").innerText=confSell>0?confSell.toFixed(0)+"%":'';
+let lastBuy=tradesBuy[tradesBuy.length-1]||{entry:0,sl:0};
+let lastSell=tradesSell[tradesSell.length-1]||{entry:0,sl:0};
+p("actionBuy").innerText="BUY";p("actionBuy").style.color="#0ecb81";
+p("entryBuy").innerHTML="ENTRY: <span class='gray-number'>"+lastBuy.entry.toFixed(2)+"</span>";
+p("tpBuy").innerHTML="TP: <span class='gray-number'>"+(lastBuy.entry*1.01).toFixed(2)+"</span>";
+p("slBuy").innerHTML="SL: <span class='gray-number'>"+lastBuy.sl.toFixed(2)+"</span>";
+p("actionSell").innerText="SELL";p("actionSell").style.color="#f6465d";
+p("entrySell").innerHTML="ENTRY: <span class='gray-number'>"+lastSell.entry.toFixed(2)+"</span>";
+p("tpSell").innerHTML="TP: <span class='gray-number'>"+(lastSell.entry*0.99).toFixed(2)+"</span>";
+p("slSell").innerHTML="SL: <span class='gray-number'>"+lastSell.sl.toFixed(2)+"</span>";
+let mc=p("miniChart");mc.innerHTML="";let recent=history.slice(-10);recent.forEach(h=>{let div=document.createElement("div");div.className="mini-bar "+(h.includes("BUY")?"green":"red");mc.appendChild(div);});
+p("total").style.color="#aaaaaa";p("total").innerText="Total Trades: "+history.length;
+p("last").style.color="#aaaaaa";p("last").innerText="Last: "+(history[history.length-1]||"-");
+if(score>10&&tradesBuy.length<3){tradesBuy.push({type:"BUY",entry:price,sl:price*0.995,score});}
+if(score<-10&&tradesSell.length<3){tradesSell.push({type:"SELL",entry:price,sl:price*1.005,score});}}
 async function run(){
-  let d1=await getData("1m"), d5=await getData("5m"), d15=await getData("15m"), d60=await getData("1h");
-  let c1=closes(d1), c5=closes(d5), c15=closes(d15), c60=closes(d60);
-  let v1=volumes(d1); let avgVol=v1.reduce((a,b)=>a+b,0)/v1.length;
-  let price=c1[c1.length-1], ma1=MA(c1,20), ma5=MA(c5,20), ma15=MA(c15,20), ma60=MA(c60,20), rsi=RSI(c1);
-  let pattern=detectPattern(d1);
-  updateUI(price,ma1,ma5,ma15,rsi,v1[v1.length-1],avgVol,pattern);
-}
-setInterval(run,1500); run();
+let d1=await getData("1m"),d5=await getData("5m"),d15=await getData("15m"),d60=await getData("1h");
+let c1=closes(d1),c5=closes(d5),c15=closes(d15),c60=closes(d60);
+let v1=volumes(d1);let avgVol=v1.reduce((a,b)=>a+b,0)/v1.length;
+let price=c1[c1.length-1],ma1=MA(c1,20),ma5=MA(c5,20),ma15=MA(c15,20),ma60=MA(c60,20),rsi=RSI(c1);
+let pattern=detectPattern(d1);
+updateUI(price,ma1,ma5,ma15,rsi,v1[v1.length-1],avgVol,pattern);}
+setInterval(run,1500);run();
 </script>
 </body>
 </html>
