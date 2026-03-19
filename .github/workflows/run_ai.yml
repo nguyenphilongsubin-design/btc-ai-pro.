@@ -1,0 +1,20 @@
+name: BTC AI PRO RUNNER
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Chạy tự động mỗi 5 phút
+  workflow_dispatch: # Cho phép anh tự bấm nút chạy thử
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install ccxt pandas
+      - name: Run AI Brain
+        run: python btc_ai.py
