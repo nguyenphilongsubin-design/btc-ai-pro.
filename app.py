@@ -2,93 +2,107 @@ import streamlit as st
 import ccxt
 import pandas as pd
 import plotly.graph_objects as go
-import requests
+import time
+from datetime import datetime
 
-# 1. Cấu hình giao diện Terminal
-st.set_page_config(layout="wide", page_title="BTC AI PRO - SENTIMENT & TREND")
-st.title("🚀 BTC AI PRO - TÂM LÝ & XU HƯỚNG ĐA KHUNG GIỜ")
+# 1. Cấu hình giao diện và Bộ nhớ tạm (Session State)
+st.set_page_config(layout="wide", page_title="BTC AI LEARNING PRO")
+if 'trades' not in st.session_state:
+    st.session_state.trades = [] # Lưu lịch sử lệnh
+if 'current_order' not in st.session_state:
+    st.session_state.current_order = None # Lệnh đang chạy
 
-# --- HÀM LẤY CHỈ SỐ TÂM LÝ (FEAR & GREED) ---
-def get_fear_greed():
-    try:
-        r = requests.get('https://alternative.me').json()
-        val = int(r['data'][0]['value'])
-        text = r['data'][0]['value_classification']
-        return val, text
-    except:
-        return 50, "Neutral"
+st.title("🚀 BTC AI LEARNING PRO - HỆ THỐNG TRADE MẪU & TỰ HỌC")
 
-# --- HÀM LẤY XU HƯỚNG ---
+# --- HÀM LẤY DỮ LIỆU ---
 exchange = ccxt.okx()
 symbol = 'BTC/USDT'
-timeframes = ['1d', '12h', '4h', '2h', '1h']
 
-def get_trend_analysis(tf):
-    try:
-        bars = exchange.fetch_ohlcv(symbol, timeframe=tf, limit=50)
-        df = pd.DataFrame(bars, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
-        current_price = df['close'].iloc[-1]
-        delta = df['close'].diff()
-        rsi = 100 - (100 / (1 + (delta.where(delta > 0, 0).rolling(14).mean() / -delta.where(delta < 0, 0).rolling(14).mean()))).iloc[-1]
-        ma20 = df['close'].rolling(20).mean().iloc[-1]
-        if current_price > ma20 and rsi > 52: trend = "🔥 TĂNG"
-        elif current_price < ma20 and rsi < 48: trend = "❄️ GIẢM"
-        else: trend = "⏳ SIDEWAY"
-        return {"Price": current_price, "RSI": rsi, "Trend": trend}
-    except: return None
+def get_data():
+    bars = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=100)
+    df = pd.DataFrame(bars, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+    df['time_dt'] = pd.to_datetime(df['time'], unit='ms')
+    # Tính RSI và ATR (Độ biến động)
+    delta = df['close'].diff()
+    df['RSI'] = 100 - (100 / (1 + (delta.where(delta > 0, 0).rolling(14).mean() / -delta.where(delta < 0, 0).rolling(14).mean())))
+    df['ATR'] = (df['high'] - df['low']).rolling(14).mean()
+    return df
 
-# --- GIAO DIỆN 1: TÂM LÝ THỊ TRƯỜNG ---
-fng_val, fng_text = get_fear_greed()
-st.subheader(f"🧠 Tâm lý thị trường: {fng_text} ({fng_val}/100)")
-st.progress(fng_val/100)
-if fng_val > 70: st.warning("⚠️ Đám đông đang quá THAM LAM. Cẩn thận điều chỉnh!")
-elif fng_val < 30: st.success("🚀 Đám đông đang SỢ HÃI. Cơ hội gom hàng giá tốt!")
+# --- LOGIC TRADE MẪU & THÔNG BÁO ---
+df = get_data()
+last = df.iloc[-1]
+price = last['close']
+rsi = last['RSI']
+atr = last['ATR']
 
-st.write("---")
+# Hiển thị thông báo nhấp nháy nếu có lệnh
+if st.session_state.current_order:
+    st.markdown("""
+        <style>
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+        .blink { animation: blink 1s linear infinite; color: #FF4B4B; font-weight: bold; border: 2px solid #FF4B4B; padding: 10px; border-radius: 5px; text-align: center; }
+        </style>
+        <div class="blink">🔴 AI ĐANG TRONG LỆNH - ĐANG THEO DÕI BIẾN ĐỘNG...</div>
+        """, unsafe_allow_stdio=True)
 
-# --- GIAO DIỆN 2: BẢNG XU HƯỚNG ĐA KHUNG GIỜ ---
-st.subheader("📊 Xu hướng đa khung thời gian (Trend Analysis)")
-cols = st.columns(len(timeframes))
-for i, tf in enumerate(timeframes):
-    data = get_trend_analysis(tf)
-    with cols[i]:
-        if data:
-            st.info(f"**Khung {tf.upper()}**")
-            st.metric("Giá", f"${data['Price']:,.1f}")
-            if "TĂNG" in data['Trend']: st.success(data['Trend'])
-            elif "GIẢM" in data['Trend']: st.error(data['Trend'])
-            else: st.warning(data['Trend'])
+col_info, col_chart = st.columns([1, 2])
 
-st.write("---")
-
-# --- GIAO DIỆN 3: TƯ VẤN ENTRY/TP/SL (KHUNG 1H) ---
-col_entry, col_chart = st.columns([1, 2])
-df_1h = pd.DataFrame(exchange.fetch_ohlcv(symbol, '1h', limit=100), columns=['time', 'open', 'high', 'low', 'close', 'volume'])
-last = df_1h.iloc[-1]
-atr = (df_1h['high'] - df_1h['low']).rolling(14).mean().iloc[-1]
-
-with col_entry:
-    st.subheader("🤖 AI Advisor")
-    price = last['close']
-    # AI tính toán điểm vào dựa trên độ biến động thực tế
-    tp_buy = price + (atr * 2.5)
-    sl_buy = price - (atr * 1.5)
-    tp_sell = price - (atr * 2.5)
-    sl_sell = price + (atr * 1.5)
+with col_info:
+    st.subheader("📋 Trạng thái lệnh hiện tại")
     
-    st.write(f"**Giá hiện tại:** `{price:,.1f}`")
-    st.markdown(f"""
-    🟢 **MUA (LONG) NẾU:** Giá giữ vững {price:,.1f}
-    - Chốt lời (TP): `{tp_buy:,.1f}`
-    - Cắt lỗ (SL): `{sl_buy:,.1f}`
+    # Logic AI tự vào lệnh mẫu
+    if not st.session_state.current_order:
+        if rsi < 35: # Tín hiệu Mua
+            st.session_state.current_order = {
+                'side': 'BUY (LONG)', 'entry': price, 
+                'tp': price + (atr * 2), 'sl': price - (atr * 1.5), 'time': datetime.now()
+            }
+        elif rsi > 65: # Tín hiệu Bán
+            st.session_state.current_order = {
+                'side': 'SELL (SHORT)', 'entry': price, 
+                'tp': price - (atr * 2), 'sl': price + (atr * 1.5), 'time': datetime.now()
+            }
     
-    🔴 **BÁN (SHORT) NẾU:** Giá thủng {price:,.1f}
-    - Chốt lời (TP): `{tp_sell:,.1f}`
-    - Cắt lỗ (SL): `{sl_sell:,.1f}`
-    """)
+    # Hiển thị thông tin lệnh đang chạy
+    if st.session_state.current_order:
+        order = st.session_state.current_order
+        st.info(f"**Vị thế:** {order['side']}\n\n**Giá vào:** {order['entry']:,.1f}\n\n**Chốt lời (TP):** {order['tp']:,.1f}\n\n**Cắt lỗ (SL):** {order['sl']:,.1f}")
+        
+        # Giả lập đóng lệnh (Nếu giá chạm TP hoặc SL)
+        if (order['side'] == 'BUY (LONG)' and (price >= order['tp'] or price <= order['sl'])) or \
+           (order['side'] == 'SELL (SHORT)' and (price <= order['tp'] or price >= order['sl'])):
+            
+            pnl = "THẮNG ✅" if (order['side'] == 'BUY (LONG)' and price >= order['tp']) or (order['side'] == 'SELL (SHORT)' and price <= order['tp']) else "THUA ❌"
+            st.session_state.trades.append({'side': order['side'], 'entry': order['entry'], 'exit': price, 'result': pnl})
+            st.session_state.current_order = None
+            st.balloons() if pnl == "THẮNG ✅" else st.snow()
+    else:
+        st.write("⏳ AI đang chờ vùng giá đẹp để vào lệnh mẫu...")
+
+    # --- NHẬT KÝ VÀ ĐÚC KẾT ---
+    st.write("---")
+    st.subheader("📜 Nhật ký & Đúc kết")
+    if st.session_state.trades:
+        history_df = pd.DataFrame(st.session_state.trades)
+        st.table(history_df.tail(5))
+        
+        # AI đúc kết kinh nghiệm
+        win_rate = (len(history_df[history_df['result'] == "THẮNG ✅"]) / len(history_df)) * 100
+        st.write(f"📈 Tỉ lệ thắng hiện tại: **{win_rate:.1f}%**")
+        if win_rate > 60:
+            st.success("💡 Đúc kết: Chiến thuật RSI + ATR đang hiệu quả. Giữ vững tâm lý!")
+        else:
+            st.warning("💡 Đúc kết: Thị trường nhiễu cao. AI khuyên nên nới rộng SL để tránh quét râu.")
+    else:
+        st.write("Chưa có dữ liệu giao dịch để đúc kết.")
 
 with col_chart:
-    df_1h['time'] = pd.to_datetime(df_1h['time'], unit='ms')
-    fig = go.Figure(data=[go.Candlestick(x=df_1h['time'], open=df_1h['open'], high=df_1h['high'], low=df_1h['low'], close=df_1h['close'])])
-    fig.update_layout(xaxis_rangeslider_visible=False, height=450, margin=dict(l=0, r=0, t=0, b=0), template="plotly_dark")
+    st.subheader("📈 Biểu đồ thực tế")
+    fig = go.Figure(data=[go.Candlestick(x=df['time_dt'], open=df['open'], high=df['high'], low=df['low'], close=df['close'])])
+    # Vẽ đường Entry nếu đang có lệnh
+    if st.session_state.current_order:
+        fig.add_hline(y=st.session_state.current_order['entry'], line_dash="dash", line_color="yellow", annotation_text="ENTRY")
+    fig.update_layout(xaxis_rangeslider_visible=False, height=500, template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
+
+st.caption(f"Cập nhật lúc: {datetime.now().strftime('%H:%M:%S')} | Dữ liệu sàn OKX")
