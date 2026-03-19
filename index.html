@@ -110,14 +110,14 @@ function flash(el,type){el.classList.remove('flash-price','flash-red');void el.o
 // ===== AI Prediction - simple linear regression over last 10 closes =====
 function aiPredict(closes){
   if(closes.length<10) return {signal:"HOLD",prob:0};
-  let x=Array.from({length:10},(_,i)=>i); // [0..9]
+  let x=Array.from({length:10},(_,i)=>i);
   let y=closes.slice(-10);
   let meanX=x.reduce((a,b)=>a+b)/x.length;
   let meanY=y.reduce((a,b)=>a+b)/y.length;
   let num=0,den=0;
   for(let i=0;i<10;i++){num+=(x[i]-meanX)*(y[i]-meanY);den+=(x[i]-meanX)**2;}
-  let slope=num/den; // dự đoán xu hướng ngắn hạn
-  let prob=Math.min(Math.abs(slope)*2000,100); // scale thành %
+  let slope=num/den;
+  let prob=Math.min(Math.abs(slope)*2000,100);
   return {signal:slope>0?"BUY":slope<0?"SELL":"HOLD",prob};
 }
 
@@ -145,7 +145,6 @@ function updateUI(price,trend,rsi,macd,atr,stoch,vol,pattern,ai){
   if(macd>0)score+=20; else score-=20;
   if(vol>atr*10)score+=10;
   if(pattern.includes("Bull"))score+=10; if(pattern.includes("Bear"))score-=10;
-  // AI contribution
   if(ai.signal=="BUY")score+=ai.prob*0.3; else if(ai.signal=="SELL")score-=ai.prob*0.3;
 
   let recTxt="WAIT",recColor="#aaaaaa";
@@ -154,25 +153,51 @@ function updateUI(price,trend,rsi,macd,atr,stoch,vol,pattern,ai){
   p("recommend").innerText="Recommendation: "+recTxt; p("recommend").style.color=recColor;
   p("recFill").style.width=Math.min(Math.abs(score),100)+"%"; p("recFill").style.backgroundColor=score>0?"#0ecb81":"#f6465d";
 
-  // AI Prediction UI
   let aiColor=ai.signal=="BUY"?"#0ecb81":ai.signal=="SELL"?"#f6465d":"#fcd535";
   p("aiPredict").innerText="AI: "+ai.signal+" "+ai.prob.toFixed(0)+"%"; p("aiPredict").style.color=aiColor;
 
-  // Dynamic TP/SL based on ATR + trailing
+  // ===== TP/SL Trailing & Flash =====
   let lastBuy=tradesBuy[tradesBuy.length-1]||{entry:price,tp:price+atr*2,sl:price-atr};
   let lastSell=tradesSell[tradesSell.length-1]||{entry:price,tp:price-atr*2,sl:price+atr};
-  if(tradesBuy.length>0 && price>lastBuy.entry){lastBuy.tp=Math.max(lastBuy.tp,price+atr*2); lastBuy.sl=Math.max(lastBuy.sl,price-atr);}
-  if(tradesSell.length>0 && price<lastSell.entry){lastSell.tp=Math.min(lastSell.tp,price-atr*2); lastSell.sl=Math.min(lastSell.sl,price+atr);}
+
+  if(tradesBuy.length>0 && price>lastBuy.entry){
+    lastBuy.tp=Math.max(lastBuy.tp,price+atr*2);
+    lastBuy.sl=Math.max(lastBuy.sl,price-atr);
+    tradesBuy[tradesBuy.length-1] = lastBuy;
+  }
+  if(tradesSell.length>0 && price<lastSell.entry){
+    lastSell.tp=Math.min(lastSell.tp,price-atr*2);
+    lastSell.sl=Math.min(lastSell.sl,price+atr);
+    tradesSell[tradesSell.length-1] = lastSell;
+  }
 
   p("actionBuy").innerText="BUY"; p("actionBuy").style.color="#0ecb81";
   p("entryBuy").innerHTML="ENTRY: <span class='gray-number'>"+lastBuy.entry.toFixed(2)+"</span>";
   p("tpBuy").innerHTML="TP: <span class='gray-number'>"+lastBuy.tp.toFixed(2)+"</span>";
   p("slBuy").innerHTML="SL: <span class='gray-number'>"+lastBuy.sl.toFixed(2)+"</span>";
+  if(price>=lastBuy.tp) flash(p("tpBuy"),'flash-price');
+  if(price<=lastBuy.sl) flash(p("slBuy"),'flash-red');
 
   p("actionSell").innerText="SELL"; p("actionSell").style.color="#f6465d";
   p("entrySell").innerHTML="ENTRY: <span class='gray-number'>"+lastSell.entry.toFixed(2)+"</span>";
   p("tpSell").innerHTML="TP: <span class='gray-number'>"+lastSell.tp.toFixed(2)+"</span>";
   p("slSell").innerHTML="SL: <span class='gray-number'>"+lastSell.sl.toFixed(2)+"</span>";
+  if(price<=lastSell.tp) flash(p("tpSell"),'flash-price');
+  if(price>=lastSell.sl) flash(p("slSell"),'flash-red');
+
+  // ===== Update WIN/LOSS History =====
+  history.forEach(h=>{
+    if(h.result=="-"){
+      if(h.type=="BUY"){
+        if(price>=h.tp) h.result="WIN";
+        else if(price<=h.sl) h.result="LOSS";
+      }
+      else if(h.type=="SELL"){
+        if(price<=h.tp) h.result="WIN";
+        else if(price>=h.sl) h.result="LOSS";
+      }
+    }
+  });
 
   // Mini chart + history
   let mc=p("miniChart"); mc.innerHTML=""; let recent=history.slice(-10);
@@ -183,8 +208,8 @@ function updateUI(price,trend,rsi,macd,atr,stoch,vol,pattern,ai){
   p("last").innerText="Last: "+(history[history.length-1]?.type||"-");
 
   // Store trades
-  if(score>15 && !tradesBuy.includes(lastBuy)){tradesBuy.push({type:"BUY",entry:price,tp:lastBuy.tp,sl:lastBuy.sl,score}); history.push({type:"BUY",entry:price,result:"-"})}
-  if(score<-15 && !tradesSell.includes(lastSell)){tradesSell.push({type:"SELL",entry:price,tp:lastSell.tp,sl:lastSell.sl,score}); history.push({type:"SELL",entry:price,result:"-"})}
+  if(score>15 && tradesBuy.length==0){tradesBuy.push({type:"BUY",entry:price,tp:lastBuy.tp,sl:lastBuy.sl,score}); history.push({type:"BUY",entry:price,tp:lastBuy.tp,sl:lastBuy.sl,result:"-"})}
+  if(score<-15 && tradesSell.length==0){tradesSell.push({type:"SELL",entry:price,tp:lastSell.tp,sl:lastSell.sl,score}); history.push({type:"SELL",entry:price,tp:lastSell.tp,sl:lastSell.sl,result:"-"})}
 }
 
 // ===== Main Loop =====
