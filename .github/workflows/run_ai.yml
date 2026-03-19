@@ -17,4 +17,5 @@ jobs:
       - name: Install dependencies
         run: pip install ccxt pandas
       - name: Run AI Brain
-        run: python btc_ai.py
+        run: python btc_ai_pro.py
+
