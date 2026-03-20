@@ -1,6 +1,4 @@
-ccxt
-pandas
 streamlit
-plotly
-altair
-streamlit-lightweight-charts
+pandas
+yfinance
+streamlit-autorefresh

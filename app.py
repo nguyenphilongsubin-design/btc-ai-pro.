@@ -1,122 +1,231 @@
 import streamlit as st
-import ccxt
 import pandas as pd
-import plotly.graph_objects as go
-import requests
-from datetime import datetime
+import yfinance as yf
+from streamlit_autorefresh import st_autorefresh
 
-# 1. Cấu hình giao diện và Bộ nhớ giao dịch
-st.set_page_config(layout="wide", page_title="BTC AI PRO MAX")
+st.set_page_config(layout="wide")
+st.title("🚀 BTC AI PRO - ULTRA STABLE BOT")
 
-# Khởi tạo bộ nhớ tạm để lưu lệnh trade mẫu
-if 'trades' not in st.session_state: st.session_state.trades = []
-if 'current_order' not in st.session_state: st.session_state.current_order = None
+st_autorefresh(interval=5000, key="refresh")
 
-# --- PHẦN 1: CÁC HÀM LẤY DỮ LIỆU ---
-exchange = ccxt.okx()
-symbol = 'BTC/USDT'
+# ===== STATE =====
+if "position" not in st.session_state:
+    st.session_state.position = None
 
-def get_data(tf='1h'):
-    bars = exchange.fetch_ohlcv(symbol, timeframe=tf, limit=100)
-    df = pd.DataFrame(bars, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
-    df['time_dt'] = pd.to_datetime(df['time'], unit='ms')
-    delta = df['close'].diff()
-    df['RSI'] = 100 - (100 / (1 + (delta.where(delta > 0, 0).rolling(14).mean() / -delta.where(delta < 0, 0).rolling(14).mean())))
-    df['ATR'] = (df['high'] - df['low']).rolling(14).mean()
-    df['MA20'] = df['close'].rolling(20).mean()
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# ===== LOAD DATA =====
+@st.cache_data(ttl=60)
+def get_data():
+    try:
+        df5 = yf.download("BTC-USD", interval="5m", period="2d")
+        df15 = yf.download("BTC-USD", interval="15m", period="3d")
+        df1h = yf.download("BTC-USD", interval="1h", period="7d")
+        return df5, df15, df1h
+    except:
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+df5, df15, df1h = get_data()
+
+def valid(df):
+    return df is not None and not df.empty and len(df) > 50
+
+if not (valid(df5) and valid(df15) and valid(df1h)):
+    st.warning("⚠️ Đang load dữ liệu... chờ 5-10s")
+    st.stop()
+
+price = float(df5['Close'].iloc[-1])
+
+# ===== EMA =====
+def add_ema(df):
+    df['ema50'] = df['Close'].ewm(span=50).mean()
+    df['ema200'] = df['Close'].ewm(span=200).mean()
     return df
 
-def get_fear_greed():
+df5 = add_ema(df5)
+df15 = add_ema(df15)
+df1h = add_ema(df1h)
+
+# ===== TREND =====
+def trend(df):
     try:
-        r = requests.get('https://alternative.me').json()
-        return int(r['data'][0]['value']), r['data'][0]['value_classification']
-    except: return 50, "Neutral"
+        ema50 = float(df['ema50'].iloc[-1])
+        ema200 = float(df['ema200'].iloc[-1])
+        return "UP" if ema50 > ema200 else "DOWN"
+    except:
+        return "WAIT"
 
-# --- PHẦN 2: HIỂN THỊ TÂM LÝ & ĐA KHUNG GIỜ ---
-st.title("🚀 BTC AI PRO MAX - TRADING TERMINAL")
-fng_val, fng_text = get_fear_greed()
-st.subheader(f"🧠 Tâm lý: {fng_text} ({fng_val}/100)")
-st.progress(fng_val/100)
+trend5 = trend(df5)
+trend15 = trend(df15)
+trend1h = trend(df1h)
 
-st.write("---")
-st.subheader("📊 Xu hướng đa khung thời gian (Trend Analysis)")
-tfs = ['1d', '4h', '1h']
-cols_tf = st.columns(3)
-for i, tf in enumerate(tfs):
-    d = get_data(tf)
-    last_d = d.iloc[-1]
-    with cols_tf[i]:
-        st.info(f"**Khung {tf.upper()}**")
-        st.metric("Giá", f"${last_d['close']:,.1f}")
-        if last_d['close'] > last_d['MA20']: st.success("🔥 TĂNG")
-        else: st.error("❄️ GIẢM")
+# ===== RSI (FIX CỨNG 100%) =====
+def rsi(df):
+    try:
+        close = df['Close'].astype(float)
 
-st.write("---")
+        if len(close) < 20:
+            return 50.0
 
-# --- PHẦN 3: TRADE MẪU & THÔNG BÁO NHẤP NHÁY ---
-df = get_data('1h')
-last = df.iloc[-1]
-price, rsi, atr = last['close'], last['RSI'], last['ATR']
+        delta = close.diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = -delta.clip(upper=0).rolling(14).mean()
 
-# Hiệu ứng nhấp nháy khi có lệnh
-if st.session_state.current_order:
-    st.markdown("""
-        <style>
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
-        .blink { animation: blink 1s linear infinite; color: #fff; background: #FF4B4B; font-weight: bold; padding: 15px; border-radius: 10px; text-align: center; font-size: 20px; }
-        </style>
-        <div class="blink">📢 AI ĐANG VÀO LỆNH: THEO DÕI BIẾN ĐỘNG THỰC TẾ!</div>
-        """, unsafe_allow_html=True)
+        rs = gain / loss
+        rsi_series = 100 - (100 / (1 + rs))
 
-col_trade, col_chart = st.columns([1, 2])
+        val = rsi_series.iloc[-1]
 
-with col_trade:
-    st.subheader("📋 Trạng thái lệnh")
-    
-    # Logic AI tự vào lệnh mẫu (Paper Trade)
-    if not st.session_state.current_order:
-        if rsi < 35: # Tín hiệu Mua
-            st.session_state.current_order = {'side': 'BUY (LONG)', 'entry': price, 'tp': price + (atr * 2), 'sl': price - (atr * 1.5), 'time': datetime.now()}
-        elif rsi > 65: # Tín hiệu Bán
-            st.session_state.current_order = {'side': 'SELL (SHORT)', 'entry': price, 'tp': price - (atr * 2), 'sl': price + (atr * 1.5), 'time': datetime.now()}
-    
-    # Hiển thị lệnh đang chạy
-    if st.session_state.current_order:
-        o = st.session_state.current_order
-        st.warning(f"**Vị thế:** {o['side']}")
-        st.code(f"ENTRY: {o['entry']:,.1f}\nTP:    {o['tp']:,.1f}\nSL:    {o['sl']:,.1f}")
-        
-        # Check đóng lệnh mẫu
-        if (o['side'] == 'BUY (LONG)' and (price >= o['tp'] or price <= o['sl'])) or \
-           (o['side'] == 'SELL (SHORT)' and (price <= o['tp'] or price >= o['sl'])):
-            res = "THẮNG ✅" if (o['side'] == 'BUY (LONG)' and price >= o['tp']) or (o['side'] == 'SELL (SHORT)' and price <= o['tp']) else "THUA ❌"
-            st.session_state.trades.append({'time': datetime.now().strftime('%H:%M'), 'side': o['side'], 'result': res, 'pnl': f"{((price/o['entry'])-1)*100:.2f}%"})
-            st.session_state.current_order = None
-            st.balloons() if "THẮNG" in res else st.snow()
-    else:
-        st.info("⏳ AI đang soi kèo... Đợi RSI chạm 35 hoặc 65.")
+        val = float(val)
 
-with col_chart:
-    fig = go.Figure(data=[go.Candlestick(x=df['time_dt'], open=df['open'], high=df['high'], low=df['low'], close=df['close'])])
-    if st.session_state.current_order:
-        fig.add_hline(y=st.session_state.current_order['entry'], line_dash="dash", line_color="yellow")
-    fig.update_layout(xaxis_rangeslider_visible=False, height=500, template="plotly_dark")
-    st.plotly_chart(fig, use_container_width=True)
+        if val != val:  # NaN check
+            return 50.0
 
-st.write("---")
+        return val
+    except:
+        return 50.0
 
-# --- PHẦN 4: NHẬT KÝ & ĐÚC KẾT KINH NGHIỆM ---
-st.subheader("📜 Nhật ký Trade & Đúc kết kinh nghiệm AI")
-if st.session_state.trades:
-    hist_df = pd.DataFrame(st.session_state.trades)
-    st.table(hist_df.tail(5))
-    
-    win_rate = (len(hist_df[hist_df['result'] == "THẮNG ✅"]) / len(hist_df)) * 100
-    st.metric("Tỉ lệ thắng thực tế", f"{win_rate:.1f}%")
-    
-    if win_rate >= 60: st.success("💡 **Kinh nghiệm:** Chiến thuật RSI kết hợp ATR đang khớp nhịp thị trường. Tiếp tục duy trì!")
-    else: st.warning("💡 **Kinh nghiệm:** Thị trường biến động quá nhanh (High Volatility). AI khuyên nên nới SL rộng hơn 2.0 ATR.")
-else:
-    st.write("Đang chờ lệnh đầu tiên để đúc kết kinh nghiệm...")
+rsi5 = rsi(df5)
 
-st.caption(f"Dữ liệu cập nhật lúc: {datetime.now().strftime('%H:%M:%S')}")
+# ===== SMART MONEY =====
+def fake_breakout(df):
+    try:
+        if len(df) < 20:
+            return "WAIT"
+
+        high = df['High'].astype(float)
+        low = df['Low'].astype(float)
+        close = df['Close'].astype(float)
+
+        rh = float(high.iloc[-10:-1].max())
+        rl = float(low.iloc[-10:-1].min())
+        c = float(close.iloc[-1])
+        p = float(close.iloc[-2])
+
+        if c > rh and p < rh:
+            return "FAKE_UP"
+        elif c < rl and p > rl:
+            return "FAKE_DOWN"
+        return "NORMAL"
+    except:
+        return "WAIT"
+
+fake = fake_breakout(df5)
+
+# ===== VOLUME =====
+def volume_spike(df):
+    try:
+        vol = df['Volume'].astype(float)
+        if len(vol) < 20:
+            return "LOW"
+        return "HIGH" if float(vol.iloc[-1]) > float(vol.iloc[-20:].mean()) * 2 else "LOW"
+    except:
+        return "LOW"
+
+volume = volume_spike(df5)
+
+# ===== SCORE =====
+score = 0
+
+if trend5 == trend15 == trend1h and trend5 != "WAIT":
+    score += 40
+
+if rsi5 < 35 or rsi5 > 65:
+    score += 15
+
+if volume == "HIGH":
+    score += 15
+
+if fake == "NORMAL":
+    score += 15
+elif fake != "WAIT":
+    score -= 10
+
+# ===== SIGNAL =====
+signal = "NO TRADE"
+tp = 0
+sl = 0
+
+if score >= 70:
+    if trend5 == "UP":
+        signal = "BUY"
+        tp = price * 1.01
+        sl = price * 0.995
+    elif trend5 == "DOWN":
+        signal = "SELL"
+        tp = price * 0.99
+        sl = price * 1.005
+
+# ===== OPEN POSITION =====
+if signal != "NO TRADE" and st.session_state.position is None:
+    st.session_state.position = {
+        "type": signal,
+        "entry": price,
+        "tp": tp,
+        "sl": sl,
+        "trend": f"{trend5}/{trend15}/{trend1h}",
+        "score": score
+    }
+
+position = st.session_state.position
+
+# ===== UI =====
+col1, col2 = st.columns([3,1])
+
+with col1:
+    st.subheader("📊 BTC Chart")
+    st.line_chart(df5['Close'])
+
+with col2:
+    st.subheader("🤖 AI PANEL")
+
+    st.metric("💰 Price", f"{price:.2f}")
+    st.metric("📈 Trend 5m", trend5)
+    st.metric("📊 Trend 15m", trend15)
+    st.metric("📊 Trend 1H", trend1h)
+    st.metric("🧠 RSI", f"{rsi5:.2f}")
+    st.metric("🐋 Volume", volume)
+    st.metric("🪤 Fake", fake)
+
+    st.write("---")
+    st.metric("🧠 Score", score)
+    st.metric("⚡ Signal", signal)
+
+    if position:
+        pnl = price - position["entry"] if position["type"]=="BUY" else position["entry"]-price
+
+        st.subheader("📌 OPEN POSITION")
+        st.write(position)
+        st.write(f"PnL: {pnl:.2f}")
+
+        # AUTO CLOSE
+        if (position["type"]=="BUY" and (price>=position["tp"] or price<=position["sl"])) or \
+           (position["type"]=="SELL" and (price<=position["tp"] or price>=position["sl"])):
+
+            result = "WIN" if pnl > 0 else "LOSS"
+
+            st.session_state.history.append({
+                "type": position["type"],
+                "entry": position["entry"],
+                "exit": price,
+                "pnl": pnl,
+                "result": result,
+                "score": position["score"]
+            })
+
+            st.session_state.position = None
+
+# ===== STATS =====
+history = pd.DataFrame(st.session_state.history)
+
+st.write("----")
+
+if not history.empty:
+    winrate = (history["result"]=="WIN").mean()*100
+    total_pnl = history["pnl"].sum()
+
+    st.subheader("📊 PERFORMANCE")
+    st.write(f"Winrate: {winrate:.2f}%")
+    st.write(f"Total PnL: {total_pnl:.2f}")
+    st.dataframe(history)
